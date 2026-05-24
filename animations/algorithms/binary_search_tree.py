@@ -32,7 +32,7 @@ INFO_HEIGHT  = 56
 NEW_HIGHLIGHT_DUR = 1.2
 
 # ms to highlight each node on the traversal path
-TRAVERSAL_HIGHLIGHT_DUR = 1000  
+TRAVERSAL_HIGHLIGHT_DUR = 5000   
 
 class Node:
     def __init__(self, val):
