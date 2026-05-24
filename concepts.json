@@ -1,0 +1,44 @@
+{
+  "courses": [
+    {
+      "id": "data-structures",
+      "name": "Data Structures",
+      "concepts": [
+        {
+          "id": "bubble_sort",
+          "name": "Bubble Sort",
+          "description": "Visualize how bubble sort compares and swaps adjacent elements",
+          "file": "animations/data-structures/bubble_sort.py",
+          "params": [
+            {
+              "name": "size",
+              "type": "int",
+              "default": 10,
+              "description": "Number of elements to sort"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "algorithms",
+      "name": "Algorithms",
+      "concepts": [
+        {
+          "id": "binary_search_tree",
+          "name": "Binary Search Tree Insertion",
+          "description": "Visualize how nodes are inserted into a BST",
+          "file": "animations/algorithms/binary_search_tree.py",
+          "params": [
+            {
+              "name": "values",
+              "type": "str",
+              "default": "5,3,7,1,4,6,8",
+              "description": "Comma-separated values to insert"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

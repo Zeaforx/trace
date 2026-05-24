@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trace — CS Concept Visualizer</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a class="logo" href="/">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">Trace</div>
+          <div class="logo-sub">CS Visualizer</div>
+        </div>
+      </a>
+    </div>
+
+    <nav class="nav">
+      {% for course in courses %}
+      <div class="nav-section">
+        <div class="nav-section-label">{{ course.name }}</div>
+        {% for concept in course.concepts %}
+        <div class="nav-item" data-course="{{ course.id }}" data-concept="{{ concept.id }}"
+             onclick="scrollToConcept('{{ course.id }}', '{{ concept.id }}')">
+          <span class="dot"></span>
+          {{ concept.name }}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </nav>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main">
+    <div class="topbar">
+      <span class="crumb active" id="bc-root">trace</span>
+      <span class="sep" id="bc-sep1" style="display:none">/</span>
+      <span class="crumb" id="bc-course"></span>
+      <span class="sep" id="bc-sep2" style="display:none">/</span>
+      <span class="crumb" id="bc-concept"></span>
+    </div>
+
+    <div class="content">
+
+      <!-- Welcome -->
+      <div class="welcome" id="welcome-section">
+        <h1>Pick a <span>concept</span></h1>
+        <p>Select a course below, then choose an animation to step through it interactively in a Pygame window.</p>
+
+        <div class="section-title">Courses</div>
+        <div class="course-grid">
+          {% for course in courses %}
+          <div class="course-card" id="card-{{ course.id }}"
+               onclick="selectCourse('{{ course.id }}')">
+            <div class="course-card-icon">
+              {% if loop.index == 1 %}🗄️{% elif loop.index == 2 %}🔭{% else %}📦{% endif %}
+            </div>
+            <div class="course-card-name">{{ course.name }}</div>
+            <div class="course-card-count">{{ course.concepts | length }} concept{% if course.concepts | length != 1 %}s{% endif %}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Per-course concept lists -->
+      {% for course in courses %}
+      <div class="course-section" id="course-{{ course.id }}" style="display:none">
+        <div class="section-title">{{ course.name }}</div>
+        <div class="concept-list">
+          {% for concept in course.concepts %}
+          <div>
+            <div class="concept-row" id="row-{{ course.id }}-{{ concept.id }}"
+                 onclick="toggleConcept('{{ course.id }}', '{{ concept.id }}')">
+              <div class="concept-row-info">
+                <div class="concept-row-name">{{ concept.name }}</div>
+                <div class="concept-row-desc">{{ concept.description }}</div>
+              </div>
+              <span class="chevron">▶</span>
+            </div>
+
+            <!-- Detail panel -->
+            <div class="detail-panel" id="detail-{{ course.id }}-{{ concept.id }}">
+              <div class="section-title" style="margin-bottom:12px">Parameters</div>
+
+              <div class="param-form" id="form-{{ course.id }}-{{ concept.id }}">
+                {% if concept.params %}
+                  {% for param in concept.params %}
+                  <div class="param-row">
+                    <div class="param-label">
+                      {{ param.name }}
+                      <span>{{ param.type }}</span>
+                    </div>
+                    <input
+                      class="param-input"
+                      type="text"
+                      id="param-{{ course.id }}-{{ concept.id }}-{{ param.name }}"
+                      value="{{ param.default }}"
+                      placeholder="{{ param.description }}"
+                    />
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <p style="font-size:12px;color:var(--muted);margin-bottom:12px">No parameters — runs with defaults.</p>
+                {% endif %}
+              </div>
+
+              <button class="run-btn"
+                      id="btn-{{ course.id }}-{{ concept.id }}"
+                      data-course="{{ course.id }}"
+                      data-concept="{{ concept.id }}"
+                      data-file="{{ concept.file }}"
+                      data-params='{{ concept.params | tojson }}'
+                      onclick="runConceptBtn(this)">
+                <span class="spinner"></span>
+                <span class="btn-text">▶ Run Animation</span>
+              </button>
+              <div class="launch-status" id="status-{{ course.id }}-{{ concept.id }}"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+let activeCourse = null;
+let activeConcept = null;
+
+const courseIcons = {"data-structures": "🗄️", "algorithms": "🔭"};
+
+function updateBreadcrumb(courseId, conceptId) {
+  const sep1 = document.getElementById('bc-sep1');
+  const sep2 = document.getElementById('bc-sep2');
+  const bcCourse = document.getElementById('bc-course');
+  const bcConcept = document.getElementById('bc-concept');
+
+  if (!courseId) {
+    sep1.style.display = 'none'; sep2.style.display = 'none';
+    bcCourse.textContent = ''; bcConcept.textContent = '';
+    return;
+  }
+  sep1.style.display = '';
+  bcCourse.textContent = courseId;
+  if (conceptId) {
+    sep2.style.display = '';
+    bcConcept.textContent = conceptId;
+  } else {
+    sep2.style.display = 'none';
+    bcConcept.textContent = '';
+  }
+}
+
+function selectCourse(courseId) {
+  // Hide welcome, show course section
+  document.getElementById('welcome-section').style.display = 'none';
+
+  // Hide all course sections
+  document.querySelectorAll('.course-section').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.course-card').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+  document.getElementById('course-' + courseId).style.display = 'block';
+  document.getElementById('card-' + courseId)?.classList.add('active');
+
+  activeCourse = courseId;
+  activeConcept = null;
+  updateBreadcrumb(courseId, null);
+}
+
+function scrollToConcept(courseId, conceptId) {
+  selectCourse(courseId);
+  // small delay to let display:block render
+  setTimeout(() => {
+    openConcept(courseId, conceptId);
+    const row = document.getElementById('row-' + courseId + '-' + conceptId);
+    if (row) row.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+function toggleConcept(courseId, conceptId) {
+  const panelId = 'detail-' + courseId + '-' + conceptId;
+  const panel = document.getElementById(panelId);
+  const row = document.getElementById('row-' + courseId + '-' + conceptId);
+  const isOpen = panel.classList.contains('open');
+
+  // Close all panels first
+  document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.concept-row').forEach(r => r.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+  if (!isOpen) {
+    panel.classList.add('open');
+    row.classList.add('active');
+    // Highlight sidebar
+    const navItem = document.querySelector(`.nav-item[data-course="${courseId}"][data-concept="${conceptId}"]`);
+    if (navItem) navItem.classList.add('active');
+    activeConcept = conceptId;
+    updateBreadcrumb(courseId, conceptId);
+  } else {
+    activeConcept = null;
+    updateBreadcrumb(courseId, null);
+  }
+}
+
+function openConcept(courseId, conceptId) {
+  const panelId = 'detail-' + courseId + '-' + conceptId;
+  const panel = document.getElementById(panelId);
+  const row = document.getElementById('row-' + courseId + '-' + conceptId);
+
+  document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.concept-row').forEach(r => r.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+  panel.classList.add('open');
+  row.classList.add('active');
+  const navItem = document.querySelector(`.nav-item[data-course="${courseId}"][data-concept="${conceptId}"]`);
+  if (navItem) navItem.classList.add('active');
+
+  activeConcept = conceptId;
+  updateBreadcrumb(courseId, conceptId);
+}
+
+function runConceptBtn(btn) {
+  const courseId  = btn.dataset.course;
+  const conceptId = btn.dataset.concept;
+  const file      = btn.dataset.file;
+  const paramDefs = JSON.parse(btn.dataset.params || '[]');
+  runConcept(courseId, conceptId, file, paramDefs, btn);
+}
+
+async function runConcept(courseId, conceptId, file, paramDefs, btnEl) {
+  const btn = btnEl || document.getElementById('btn-' + courseId + '-' + conceptId);
+  const statusEl = document.getElementById('status-' + courseId + '-' + conceptId);
+
+  const params = {};
+  for (const p of paramDefs) {
+    const inputEl = document.getElementById('param-' + courseId + '-' + conceptId + '-' + p.name);
+    if (inputEl) params[p.name] = inputEl.value;
+  }
+
+  btn.classList.add('loading');
+  statusEl.className = 'launch-status';
+
+  try {
+    const resp = await fetch('/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file, params })
+    });
+    const data = await resp.json();
+    if (resp.ok && !data.error) {
+      statusEl.className = 'launch-status ok';
+      statusEl.textContent = '✓ Animation launched in a new window';
+    } else {
+      statusEl.className = 'launch-status err';
+      statusEl.textContent = '✗ ' + (data.error || 'Unknown error');
+    }
+  } catch (e) {
+    statusEl.className = 'launch-status err';
+    statusEl.textContent = '✗ Network error: ' + e.message;
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+</script>
+</body>
+</html>
